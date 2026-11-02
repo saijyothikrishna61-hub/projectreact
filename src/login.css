@@ -34,6 +34,8 @@
 .form-error{margin:4px 0 0;color:#b94336;font-size:12px}
 .demo-note{display:flex;gap:9px;align-items:flex-start;margin-top:22px;padding:12px;background:#f5f7f1;border-radius:7px;color:#737c6c;font-size:11px;line-height:1.55}
 .demo-dot{width:7px;height:7px;flex:0 0 7px;margin-top:4px;border-radius:50%;background:#6f9466}
+.login-mode-switch{margin:19px 0 0;text-align:center;color:#747b72;font-size:12px}
+.login-mode-switch button{border:0;background:none;padding:0 0 0 3px;color:#345c3a;font:700 12px Arial,sans-serif;cursor:pointer}
 .login-footer{margin:24px 0 0;color:#969b93;text-align:center;font-size:10px;line-height:1.6}
 .login-footer a{color:#596c54;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:900px){.login-page{grid-template-columns:42% 1fr}.login-picture{padding:30px 7%}.picture-note{display:none}.picture-copy h1{font-size:52px}.login-food-image{width:min(48%,220px);right:5%;top:17%}}

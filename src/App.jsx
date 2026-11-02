@@ -21,6 +21,19 @@ const INITIAL_CUSTOMERS = [
   { id: 4, name: 'Rohan Das', email: 'rohan.das@email.com', lastOrder: 'Today, 11:54 AM', orders: 6 },
 ];
 
+const INITIAL_RESTAURANT_ACCOUNTS = [
+  { email: DEMO_USERS.restaurant.email, password: DEMO_USERS.restaurant.password, name: DEMO_USERS.restaurant.name, restaurantId: 1 },
+];
+
+const readStored = (key, fallback) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const INITIAL_MENU = [
   { id: 1, restaurantId: 1, name: 'Chicken Biryani', category: 'Biryani', price: 249, image: 'biryani.png', available: true },
   { id: 2, restaurantId: 1, name: 'Veg Biryani', category: 'Biryani', price: 199, image: 'biryani.png', available: true },
@@ -46,10 +59,11 @@ function App() {
   const [session, setSession] = useState(() => {
     try { return JSON.parse(localStorage.getItem('foodnest-session')); } catch { return null; }
   });
-  const [restaurants, setRestaurants] = useState(INITIAL_RESTAURANTS);
-  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
-  const [menu, setMenu] = useState(INITIAL_MENU);
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [restaurants, setRestaurants] = useState(() => readStored('foodnest-restaurants', INITIAL_RESTAURANTS));
+  const [customers, setCustomers] = useState(() => readStored('foodnest-customers', INITIAL_CUSTOMERS));
+  const [restaurantAccounts, setRestaurantAccounts] = useState(() => readStored('foodnest-restaurant-accounts', INITIAL_RESTAURANT_ACCOUNTS));
+  const [menu, setMenu] = useState(() => readStored('foodnest-menu', INITIAL_MENU));
+  const [orders, setOrders] = useState(() => readStored('foodnest-orders', INITIAL_ORDERS));
   const [cart, setCart] = useState([]);
 
   useEffect(() => {
@@ -57,22 +71,64 @@ function App() {
     else localStorage.removeItem('foodnest-session');
   }, [session]);
 
+  useEffect(() => localStorage.setItem('foodnest-restaurants', JSON.stringify(restaurants)), [restaurants]);
+  useEffect(() => localStorage.setItem('foodnest-customers', JSON.stringify(customers)), [customers]);
+  useEffect(() => localStorage.setItem('foodnest-restaurant-accounts', JSON.stringify(restaurantAccounts)), [restaurantAccounts]);
+  useEffect(() => localStorage.setItem('foodnest-menu', JSON.stringify(menu)), [menu]);
+  useEffect(() => localStorage.setItem('foodnest-orders', JSON.stringify(orders)), [orders]);
+
   const signIn = (role, email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
-    const demo = role === 'user'
-      ? customers.find((customer) => customer.email === normalizedEmail)
-      : DEMO_USERS[role];
-    if (!demo || normalizedEmail !== demo.email || password !== demo.password) {
+    const account = role === 'user'
+      ? customers.find((customer) => customer.email.toLowerCase() === normalizedEmail)
+      : role === 'restaurant'
+        ? restaurantAccounts.find((restaurant) => restaurant.email.toLowerCase() === normalizedEmail)
+        : DEMO_USERS[role];
+    if (!account || normalizedEmail !== account.email || password !== account.password) {
       return 'Those details do not match this demo account.';
     }
-    if (role === 'restaurant' && !restaurants.some((restaurant) => restaurant.id === 1)) {
+    if (role === 'restaurant' && !restaurants.some((restaurant) => restaurant.id === account.restaurantId)) {
       return 'This restaurant is no longer listed on FoodNest.';
     }
-    setSession({ role, name: demo.name, email: demo.email });
+    setSession({ role, name: account.name, email: normalizedEmail, ...(role === 'restaurant' ? { restaurantId: account.restaurantId } : {}) });
     return '';
   };
 
-  if (!session) return <LoginScreen onSignIn={signIn} />;
+  const createAccount = ({ role, name, cuisine, email, password }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const duplicate = customers.some((customer) => customer.email.toLowerCase() === normalizedEmail)
+      || restaurantAccounts.some((account) => account.email.toLowerCase() === normalizedEmail)
+      || Object.values(DEMO_USERS).some((account) => account.email === normalizedEmail);
+    if (duplicate) return 'An account with this email already exists.';
+    if (!['user', 'restaurant'].includes(role)) return 'Choose a user or restaurant account type.';
+
+    const accountName = name.trim();
+    if (!accountName) return role === 'restaurant' ? 'Enter your restaurant name.' : 'Enter your name.';
+    if (role === 'restaurant' && !cuisine.trim()) return 'Enter your restaurant cuisine.';
+    if (role === 'user') {
+      setCustomers((current) => [...current, { id: Date.now(), name: accountName, email: normalizedEmail, password, lastOrder: 'No orders yet', orders: 0 }]);
+      setSession({ role, name: accountName, email: normalizedEmail });
+      return '';
+    }
+
+    const restaurantId = Math.max(0, ...restaurants.map((restaurant) => Number(restaurant.id) || 0)) + 1;
+    const restaurantName = accountName;
+    setRestaurants((current) => [...current, {
+      id: restaurantId,
+      name: restaurantName,
+      cuisine: cuisine.trim(),
+      rating: 'New',
+      time: '25–30 min',
+      image: 'north-indian.png',
+      status: 'Open',
+      orders: 0,
+    }]);
+    setRestaurantAccounts((current) => [...current, { email: normalizedEmail, password, name: restaurantName, restaurantId }]);
+    setSession({ role, name: restaurantName, email: normalizedEmail, restaurantId });
+    return '';
+  };
+
+  if (!session) return <LoginScreen onSignIn={signIn} onCreateAccount={createAccount} />;
 
   const signOut = () => { setSession(null); setCart([]); };
   return (
@@ -97,22 +153,32 @@ function Brand({ light = false }) {
   return <div className={`brand ${light ? 'brand-light' : ''}`}><span className="brand-mark">F</span><span>FoodNest</span></div>;
 }
 
-function LoginScreen({ onSignIn }) {
+function LoginScreen({ onSignIn, onCreateAccount }) {
   const [role, setRole] = useState('user');
   const [email, setEmail] = useState(DEMO_USERS.user.email);
   const [password, setPassword] = useState(DEMO_USERS.user.password);
+  const [name, setName] = useState('');
+  const [cuisine, setCuisine] = useState('');
+  const [mode, setMode] = useState('signin');
   const [error, setError] = useState('');
 
   const chooseRole = (nextRole) => {
     setRole(nextRole);
-    setEmail(DEMO_USERS[nextRole].email);
-    setPassword(DEMO_USERS[nextRole].password);
+    if (mode === 'signin') {
+      setEmail(DEMO_USERS[nextRole].email);
+      setPassword(DEMO_USERS[nextRole].password);
+    } else {
+      setName('');
+      setCuisine('');
+    }
     setError('');
   };
 
   const submit = (event) => {
     event.preventDefault();
-    const result = onSignIn(role, email, password);
+    const result = mode === 'signin'
+      ? onSignIn(role, email, password)
+      : onCreateAccount({ role, name, cuisine, email, password });
     setError(result);
   };
 
@@ -132,25 +198,34 @@ function LoginScreen({ onSignIn }) {
       <section className="login-form-side">
         <div className="login-card-wrap">
           <div className="mobile-brand"><Brand /></div>
-          <p className="eyebrow">WELCOME BACK</p>
-          <h2>Sign in to FoodNest</h2>
-          <p className="login-subtitle">Choose your account type to continue.</p>
+          <p className="eyebrow">{mode === 'signin' ? 'WELCOME BACK' : 'JOIN FOODNEST'}</p>
+          <h2>{mode === 'signin' ? 'Sign in to FoodNest' : 'Create your account'}</h2>
+          <p className="login-subtitle">{mode === 'signin' ? 'Choose your account type to continue.' : 'Create a user or restaurant account to get started.'}</p>
           <div className="role-picker" aria-label="Account type">
-            {['admin', 'user', 'restaurant'].map((item) => (
+            {(mode === 'signin' ? ['admin', 'user', 'restaurant'] : ['user', 'restaurant']).map((item) => (
               <button className={role === item ? 'selected' : ''} key={item} onClick={() => chooseRole(item)} type="button">
                 {item === 'user' ? 'User' : item === 'restaurant' ? 'Restaurant' : 'Admin'}
               </button>
             ))}
           </div>
           <form className="login-form" onSubmit={submit}>
+            {mode === 'signup' && <>
+              <label htmlFor="account-name">{role === 'restaurant' ? 'Restaurant name' : 'Full name'}</label>
+              <input id="account-name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} required />
+              {role === 'restaurant' && <>
+                <label htmlFor="account-cuisine">Cuisine</label>
+                <input id="account-cuisine" value={cuisine} onChange={(event) => setCuisine(event.target.value)} placeholder="e.g. Indian, Italian" required />
+              </>}
+            </>}
             <label htmlFor="email">Email address</label>
             <input id="email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
             <label htmlFor="password">Password</label>
-            <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <input id="password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={mode === 'signup' ? 8 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="button button-primary login-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+            <button className="button button-primary login-submit" type="submit">{mode === 'signin' ? 'Sign in' : 'Create account'} <span aria-hidden="true">→</span></button>
           </form>
-          <div className="demo-note"><span className="demo-dot" /><span>Demo account details are filled in for you. Select a role to switch accounts.</span></div>
+          <p className="login-mode-switch">{mode === 'signin' ? 'New to FoodNest?' : 'Already have an account?'} <button type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setRole('user'); setEmail(mode === 'signin' ? '' : DEMO_USERS.user.email); setPassword(mode === 'signin' ? '' : DEMO_USERS.user.password); setName(''); setCuisine(''); setError(''); }}>{mode === 'signin' ? 'Create an account' : 'Sign in'}</button></p>
+          {mode === 'signin' && <div className="demo-note"><span className="demo-dot" /><span>Demo account details are filled in for you. Select a role to switch accounts.</span></div>}
           <p className="login-footer">By continuing, you agree to our <a href="#terms" onClick={(event) => event.preventDefault()}>Terms</a> and <a href="#privacy" onClick={(event) => event.preventDefault()}>Privacy Policy</a>.</p>
         </div>
       </section>
@@ -211,8 +286,8 @@ function Workspace({ session, onSignOut, restaurants, setRestaurants, customers,
         </header>
         <div className="content-area">
           {session.role === 'admin' && <AdminModule page={activePage} onNavigate={setPage} restaurants={restaurants} setRestaurants={setRestaurants} customers={customers} setCustomers={setCustomers} menu={menu} setMenu={setMenu} orders={orders} setOrders={setOrders} />}
-          {session.role === 'restaurant' && <RestaurantModule page={activePage} orders={orders} setOrders={setOrders} menu={menu} setMenu={setMenu} />}
-          {session.role === 'user' && <UserModule page={activePage} restaurants={restaurants} menu={menu} orders={orders} cart={cart} setCart={setCart} setOrders={setOrders} notify={setToast} />}
+          {session.role === 'restaurant' && <RestaurantModule session={session} restaurants={restaurants} page={activePage} orders={orders} setOrders={setOrders} menu={menu} setMenu={setMenu} />}
+          {session.role === 'user' && <UserModule session={session} page={activePage} restaurants={restaurants} menu={menu} orders={orders} cart={cart} setCart={setCart} setOrders={setOrders} notify={setToast} />}
         </div>
       </main>
       {toast && <div className="toast" role="status">{toast}</div>}
@@ -304,8 +379,9 @@ function statusClass(status) {
   return 'status-blue';
 }
 
-function RestaurantModule({ page, orders, setOrders, menu, setMenu }) {
-  const restaurantId = 1;
+function RestaurantModule({ session, restaurants, page, orders, setOrders, menu, setMenu }) {
+  const restaurantId = session.restaurantId ?? 1;
+  const restaurantName = restaurants.find((restaurant) => restaurant.id === restaurantId)?.name ?? session.name;
   const ownOrders = orders.filter((order) => order.restaurantId === restaurantId);
   const ownMenu = menu.filter((item) => item.restaurantId === restaurantId);
   const [showAdd, setShowAdd] = useState(false);
@@ -321,11 +397,11 @@ function RestaurantModule({ page, orders, setOrders, menu, setMenu }) {
   };
   const toggleAvailability = (id) => setMenu((current) => current.map((item) => item.id === id ? { ...item, available: !item.available } : item));
 
-  if (page === 'Orders') return <><PageHeading kicker="SPICE GARDEN" title="Orders" detail="Review new orders and update their progress." /><div className="order-summary"><div><span>New orders</span><b>{ownOrders.filter((order) => order.status === 'New').length}</b></div><div><span>In progress</span><b>{ownOrders.filter((order) => ['Preparing', 'Ready', 'On the way'].includes(order.status)).length}</b></div><div><span>Completed today</span><b>18</b></div></div><div className="table-card"><OrderTable orders={ownOrders} restaurants={INITIAL_RESTAURANTS} onStatusChange={changeStatus} /></div></>;
+  if (page === 'Orders') return <><PageHeading kicker={restaurantName.toUpperCase()} title="Orders" detail="Review new orders and update their progress." /><div className="order-summary"><div><span>New orders</span><b>{ownOrders.filter((order) => order.status === 'New').length}</b></div><div><span>In progress</span><b>{ownOrders.filter((order) => ['Preparing', 'Ready', 'On the way'].includes(order.status)).length}</b></div><div><span>Completed today</span><b>18</b></div></div><div className="table-card"><OrderTable orders={ownOrders} restaurants={restaurants} onStatusChange={changeStatus} /></div></>;
 
   if (page === 'Menu') return (
     <>
-      <PageHeading kicker="SPICE GARDEN" title="Your menu" detail="Update dishes and keep availability current." action={<button className="button button-primary" onClick={() => setShowAdd((value) => !value)}>{showAdd ? 'Close' : '+ Add dish'}</button>} />
+      <PageHeading kicker={restaurantName.toUpperCase()} title="Your menu" detail="Update dishes and keep availability current." action={<button className="button button-primary" onClick={() => setShowAdd((value) => !value)}>{showAdd ? 'Close' : '+ Add dish'}</button>} />
       {showAdd && <form className="add-menu-form" onSubmit={addMenuItem}><div><label htmlFor="dish-name">Dish name</label><input id="dish-name" value={newItem.name} onChange={(event) => setNewItem({ ...newItem, name: event.target.value })} placeholder="e.g. Veg Pulao" required /></div><div><label htmlFor="dish-category">Category</label><select id="dish-category" value={newItem.category} onChange={(event) => setNewItem({ ...newItem, category: event.target.value })}><option>Main course</option><option>Starters</option><option>Desserts</option><option>Drinks</option></select></div><div><label htmlFor="dish-price">Price (₹)</label><input id="dish-price" type="number" min="1" value={newItem.price} onChange={(event) => setNewItem({ ...newItem, price: event.target.value })} placeholder="199" required /></div><button className="button button-primary" type="submit">Save dish</button></form>}
       <div className="menu-manager">{ownMenu.map((item) => <article className="menu-manager-row" key={item.id}><img src={imagePath(item.image)} alt="" /><div className="menu-manager-copy"><b>{item.name}</b><small>{item.category}</small></div><b>{money(item.price)}</b><button className={`availability ${item.available ? 'is-available' : ''}`} onClick={() => toggleAvailability(item.id)}><span />{item.available ? 'Available' : 'Hidden'}</button></article>)}</div>
     </>
@@ -333,14 +409,14 @@ function RestaurantModule({ page, orders, setOrders, menu, setMenu }) {
 
   return (
     <>
-      <PageHeading kicker="MONDAY, NOVEMBER 2" title="Good morning, Spice Garden" detail="Here’s how your restaurant is doing today." action={<span className="status-pill status-green open-pill"><span /> Open today</span>} />
+      <PageHeading kicker="MONDAY, NOVEMBER 2" title={`Good morning, ${restaurantName}`} detail="Here’s how your restaurant is doing today." action={<span className="status-pill status-green open-pill"><span /> Open today</span>} />
       <div className="stats-grid"><StatCard label="Today’s orders" value="34" change="14.2%" note=" vs last week" /><StatCard label="Today’s sales" value="₹18,420" change="9.6%" note=" vs last week" tone="blue" /><StatCard label="Average rating" value="4.8" change="+0.2" note=" this month" tone="orange" /><StatCard label="Menu items" value={String(ownMenu.length)} change={`${ownMenu.filter((item) => item.available).length} available`} note=" right now" tone="purple" /></div>
-      <div className="dashboard-grid restaurant-grid"><section className="simple-card"><div className="card-title-row"><div><h3>Recent orders</h3><p>Orders waiting for your attention</p></div></div><OrderTable orders={ownOrders.slice(0, 4)} restaurants={INITIAL_RESTAURANTS} onStatusChange={changeStatus} /></section><section className="simple-card today-card"><div className="card-title-row"><div><h3>Today at a glance</h3><p>Your restaurant summary</p></div></div><div className="glance-row"><span>Orders completed</span><b>26 of 34</b></div><div className="progress-track"><span style={{ width: '76%' }} /></div><div className="glance-row"><span>Average preparation</span><b>24 min</b></div><div className="glance-row"><span>Customer rating</span><b>★ 4.8 <small>(128)</small></b></div><div className="restaurant-note"><b>Nice work!</b><span>Your delivery time is 6 minutes faster than last week.</span></div></section></div>
+      <div className="dashboard-grid restaurant-grid"><section className="simple-card"><div className="card-title-row"><div><h3>Recent orders</h3><p>Orders waiting for your attention</p></div></div><OrderTable orders={ownOrders.slice(0, 4)} restaurants={restaurants} onStatusChange={changeStatus} /></section><section className="simple-card today-card"><div className="card-title-row"><div><h3>Today at a glance</h3><p>Your restaurant summary</p></div></div><div className="glance-row"><span>Orders completed</span><b>26 of 34</b></div><div className="progress-track"><span style={{ width: '76%' }} /></div><div className="glance-row"><span>Average preparation</span><b>24 min</b></div><div className="glance-row"><span>Customer rating</span><b>★ 4.8 <small>(128)</small></b></div><div className="restaurant-note"><b>Nice work!</b><span>Your delivery time is 6 minutes faster than last week.</span></div></section></div>
     </>
   );
 }
 
-function UserModule({ page, restaurants, menu, orders, cart, setCart, setOrders, notify }) {
+function UserModule({ session, page, restaurants, menu, orders, cart, setCart, setOrders, notify }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(1);
   const [category, setCategory] = useState('All');
   const [search, setSearch] = useState('');
@@ -348,7 +424,7 @@ function UserModule({ page, restaurants, menu, orders, cart, setCart, setOrders,
   const dishes = menu.filter((item) => item.restaurantId === selectedRestaurant && item.available && (category === 'All' || item.category === category || (category === 'Biryani' && item.category === 'Starters')) && item.name.toLowerCase().includes(search.toLowerCase()));
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const userOrders = orders.filter((order) => order.customer === 'Maya Reddy');
+  const userOrders = orders.filter((order) => order.customerEmail === session.email || (!order.customerEmail && order.customer === session.name));
   const addToCart = (dish, restaurantName) => {
     if (cart.length && cart[0].restaurantId !== dish.restaurantId) {
       notify('Finish your current restaurant order before adding dishes here.');
@@ -363,7 +439,7 @@ function UserModule({ page, restaurants, menu, orders, cart, setCart, setOrders,
   const updateQuantity = (id, amount) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: item.quantity + amount } : item).filter((item) => item.quantity > 0));
   const placeOrder = () => {
     if (!cart.length) return;
-    const order = { id: `FN-${1050 + orders.length}`, customer: 'Maya Reddy', restaurantId: cart[0].restaurantId, items: cart.map((item) => `${item.name} × ${item.quantity}`).join(', '), total: cartTotal + 35, status: 'New', time: 'Just now' };
+    const order = { id: `FN-${1050 + orders.length}`, customer: session.name, customerEmail: session.email, restaurantId: cart[0].restaurantId, items: cart.map((item) => `${item.name} × ${item.quantity}`).join(', '), total: cartTotal + 35, status: 'New', time: 'Just now' };
     setOrders((current) => [order, ...current]);
     setCart([]);
     notify(`Order ${order.id} placed successfully`);
