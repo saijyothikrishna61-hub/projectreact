@@ -26,3 +26,11 @@ npm run dev
 The login screen styles are in `src/login.css`. The app uses a small green, white, and gray palette with the system Arial font.
 
 This is a front-end demo. Sample data is held in the browser while the app is open, and the demo session is saved in local storage. There is no server-side authentication, database, or payment integration.
+
+## Deploy to GitHub Pages
+
+Pushes to `main` build and deploy the app with GitHub Actions. The published site will be available at:
+
+https://saijyothikrishna61-hub.github.io/projectreact/
+
+For the first deployment, open the repository's **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. Then check the **Actions** tab for the deployment status.
