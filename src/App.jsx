@@ -53,7 +53,7 @@ const INITIAL_ORDERS = [
 ];
 
 const money = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
-const imagePath = (name) => `/images/${name}`;
+const imagePath = (name) => `${import.meta.env.BASE_URL}images/${name}`;
 
 function App() {
   const [session, setSession] = useState(() => {
