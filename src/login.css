@@ -1,0 +1,40 @@
+.login-page{min-height:100vh;display:grid;grid-template-columns:minmax(420px,48%) 1fr;background:#fff}
+.login-picture{position:relative;min-height:100vh;overflow:hidden;background:#284a35;color:#fff;padding:38px 8%;display:flex;flex-direction:column;justify-content:space-between}
+.picture-top,.picture-bottom{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:700;letter-spacing:-.4px;color:#273c2b}
+.brand-light{color:#fff}
+.brand-mark{width:32px;height:32px;border-radius:9px;background:#5d8b57;color:#fff;display:inline-grid;place-items:center;font-weight:700;font-size:17px}
+.brand-light .brand-mark{background:#fff;color:#284a35}
+.picture-note,.picture-bottom{font-size:10px;font-weight:700;letter-spacing:1.1px;color:rgba(255,255,255,.75)}
+.picture-copy{position:relative;z-index:2;max-width:460px;margin-top:auto;margin-bottom:35px}
+.eyebrow{margin:0 0 10px;color:#74806e;font-size:10px;font-weight:700;letter-spacing:1.2px}
+.login-picture .eyebrow{color:#cfddc8}
+.picture-copy h1{font-size:clamp(48px,6vw,76px);line-height:.98;letter-spacing:-3.8px;margin:0 0 22px;font-weight:700}
+.picture-copy h1 span{color:#d2dfb7}
+.picture-copy>p:last-child{max-width:310px;font-size:14px;line-height:1.7;color:rgba(255,255,255,.76)}
+.login-food-image{position:absolute;width:min(48%,260px);height:auto;object-fit:contain;right:7%;top:17%;z-index:1;filter:drop-shadow(0 22px 25px rgba(0,0,0,.18))}
+.picture-bottom{font-size:11px;letter-spacing:.1px}
+.login-form-side{display:grid;place-items:center;padding:50px 38px}
+.login-card-wrap{width:min(100%,390px)}
+.mobile-brand{display:none}
+.login-card-wrap h2{font-size:29px;letter-spacing:-1.1px;margin:0;color:#252c25}
+.login-subtitle{color:#7c8279;font-size:13px;margin:9px 0 27px}
+.role-picker{display:grid;grid-template-columns:repeat(3,1fr);padding:4px;background:#f3f5f1;border:1px solid #e8ebe5;border-radius:8px;gap:3px;margin-bottom:23px}
+.role-picker button{border:0;border-radius:6px;background:transparent;color:#737a71;font:600 12px Arial,sans-serif;padding:10px 5px;cursor:pointer}
+.role-picker button.selected{background:#fff;color:#315437;box-shadow:0 1px 4px rgba(20,35,18,.1)}
+.login-form{display:flex;flex-direction:column;gap:8px}
+.login-form label{font-size:12px;font-weight:700;color:#424940;margin-top:7px}
+.login-form input{height:45px;width:100%;border:1px solid #dfe3dc;border-radius:7px;background:#fff;padding:0 13px;color:#283028;font:13px Arial,sans-serif;outline:none;transition:border .15s,box-shadow .15s}
+.login-form input:focus{border-color:#6c9464;box-shadow:0 0 0 3px rgba(96,139,87,.12)}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:7px;padding:11px 15px;font:700 12px Arial,sans-serif;cursor:pointer;transition:background .15s,transform .15s}
+.button-primary{background:#345c3a;color:#fff}
+.button-primary:hover{background:#284b2f;transform:translateY(-1px)}
+.login-submit{height:46px;margin-top:12px;font-size:13px}
+.login-submit span{font-size:17px;font-weight:400}
+.form-error{margin:4px 0 0;color:#b94336;font-size:12px}
+.demo-note{display:flex;gap:9px;align-items:flex-start;margin-top:22px;padding:12px;background:#f5f7f1;border-radius:7px;color:#737c6c;font-size:11px;line-height:1.55}
+.demo-dot{width:7px;height:7px;flex:0 0 7px;margin-top:4px;border-radius:50%;background:#6f9466}
+.login-footer{margin:24px 0 0;color:#969b93;text-align:center;font-size:10px;line-height:1.6}
+.login-footer a{color:#596c54;text-decoration:underline;text-underline-offset:2px}
+@media(max-width:900px){.login-page{grid-template-columns:42% 1fr}.login-picture{padding:30px 7%}.picture-note{display:none}.picture-copy h1{font-size:52px}.login-food-image{width:min(48%,220px);right:5%;top:17%}}
+@media(max-width:650px){.login-page{display:block}.login-picture{display:none}.login-form-side{min-height:100vh;padding:28px 22px}.mobile-brand{display:block;margin:0 0 54px}.login-card-wrap h2{font-size:27px}}
